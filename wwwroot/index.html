@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Storage API Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #81a1c1;
+        }
+        .section {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #a0aec0;
+        }
+        input, button {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #4a5568;
+            background: #1a202c;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            max-width: 400px;
+        }
+        button {
+            background: #2c5282;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #2a4365;
+        }
+        .breadcrumb {
+            padding: 10px;
+            background: #1a202c;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .breadcrumb-item {
+            color: #81a1c1;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .breadcrumb-item:hover {
+            background: #2d3748;
+        }
+        .breadcrumb-separator {
+            color: #4a5568;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .file-item {
+            padding: 15px;
+            background: #1a202c;
+            border: 1px solid #4a5568;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.2s;
+        }
+        .file-item:hover {
+            background: #2d3748;
+            border-color: #81a1c1;
+        }
+        .file-item.folder {
+            border-left: 4px solid #81a1c1;
+        }
+        .file-item.url {
+            border-left: 4px solid #48bb78;
+        }
+        .file-icon {
+            font-size: 32px;
+        }
+        .file-info {
+            flex: 1;
+        }
+        .file-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .file-meta {
+            font-size: 12px;
+            color: #a0aec0;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a202c;
+            border-radius: 6px;
+            border: 1px solid #4a5568;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #f56565;
+        }
+        .success {
+            color: #48bb78;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #81a1c1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 File Storage API Test</h1>
+        
+        <div class="section">
+            <h2>Настройки</h2>
+            <div class="form-group">
+                <label>Resource Key:</label>
+                <input type="text" id="resourceKey" value="test-resource" placeholder="resource-key">
+            </div>
+            <div class="form-group">
+                <label>Текущий путь:</label>
+                <input type="text" id="currentPath" value="" placeholder="folder/subfolder" readonly>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Операции</h2>
+            <button onclick="listFiles()">🔄 Обновить список</button>
+            <button onclick="createFolder()">📁 Создать папку</button>
+            <button onclick="createUrl()">🔗 Создать URL</button>
+            <button onclick="triggerUpload()">📤 Загрузить файл</button>
+            <button onclick="goToRoot()">🏠 В корень</button>
+            <input type="file" id="fileInput" multiple style="display: none;" onchange="uploadFiles()">
+        </div>
+
+        <div class="section">
+            <h2>Содержимое</h2>
+            <div class="breadcrumb" id="breadcrumb"></div>
+            <div id="fileList" class="file-list">
+                <div class="empty-state">Нажмите "Обновить список" для загрузки файлов</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Результат операции</h2>
+            <div class="result" id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/resources';
+        let currentPath = '';
+        
+        function getResourceKey() {
+            return document.getElementById('resourceKey').value || 'test-resource';
+        }
+        
+        function updatePathDisplay() {
+            document.getElementById('currentPath').value = currentPath || '(корень)';
+            updateBreadcrumb();
+        }
+        
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            breadcrumb.innerHTML = '';
+            
+            const home = document.createElement('span');
+            home.className = 'breadcrumb-item';
+            home.textContent = '🏠 Главная';
+            home.onclick = goToRoot;
+            breadcrumb.appendChild(home);
+            
+            if (currentPath) {
+                const parts = currentPath.split('/').filter(p => p);
+                parts.forEach((part, index) => {
+                    const sep = document.createElement('span');
+                    sep.className = 'breadcrumb-separator';
+                    sep.textContent = ' / ';
+                    breadcrumb.appendChild(sep);
+                    
+                    const item = document.createElement('span');
+                    item.className = 'breadcrumb-item';
+                    item.textContent = part;
+                    const pathToItem = parts.slice(0, index + 1).join('/');
+                    item.onclick = () => openFolder(pathToItem);
+                    breadcrumb.appendChild(item);
+                });
+            }
+        }
+        
+        function goToRoot() {
+            currentPath = '';
+            updatePathDisplay();
+            listFiles();
+        }
+        
+        function openFolder(path) {
+            currentPath = path;
+            updatePathDisplay();
+            listFiles();
+        }
+        
+        function showResult(data, isError = false) {
+            const result = document.getElementById('result');
+            result.className = 'result ' + (isError ? 'error' : 'success');
+            result.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        async function listFiles() {
+            try {
+                const resourceKey = getResourceKey();
+                const path = currentPath;
+                const url = `${API_BASE}/${resourceKey}/storage/list${path ? '?path=' + encodeURIComponent(path) : ''}`;
+                
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '<div class="loading">Загрузка...</div>';
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    showResult(data, true);
+                    fileList.innerHTML = `<div class="error">Ошибка: ${data.error || 'Неизвестная ошибка'}</div>`;
+                    return;
+                }
+                
+                showResult(data, false);
+                displayFiles(data.items || []);
+            } catch (error) {
+                showResult({ error: error.message }, true);
+                document.getElementById('fileList').innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        function displayFiles(items) {
+            const fileList = document.getElementById('fileList');
+            
+            if (items.length === 0) {
+                fileList.innerHTML = '<div class="empty-state">📂 Папка пуста</div>';
+                return;
+            }
+            
+            fileList.innerHTML = items.map(item => {
+                const isFolder = item.type === 0;
+                const isUrl = item.type === 2;
+                const icon = item.icon || (isFolder ? '📁' : isUrl ? '🔗' : '📄');
+                const name = item.filename || item.name || 'Без имени';
+                let meta, onClick;
+                
+                if (isFolder) {
+                    meta = 'Папка';
+                    onClick = `openFolder('${escapeHtml(item.path)}')`;
+                } else if (isUrl) {
+                    meta = 'URL ссылка';
+                    onClick = `openUrl('${escapeHtml(item.path)}')`;
+                } else {
+                    meta = `Размер: ${formatSize(item.size || 0)}`;
+                    onClick = `downloadFile('${escapeHtml(item.path)}')`;
+                }
+                
+                return `
+                    <div class="file-item ${isFolder ? 'folder' : isUrl ? 'url' : ''}" onclick="${onClick}">
+                        <div class="file-icon">${icon}</div>
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(name)}</div>
+                            <div class="file-meta">${meta}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 Б';
+            const k = 1024;
+            const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function downloadFile(path) {
+            const resourceKey = getResourceKey();
+            window.open(`${API_BASE}/${resourceKey}/storage/download?path=${encodeURIComponent(path)}`, '_blank');
+        }
+        
+        async function openUrl(path) {
+            try {
+                const resourceKey = getResourceKey();
+                const response = await fetch(`${API_BASE}/${resourceKey}/storage/download?path=${encodeURIComponent(path)}`);
+                if (response.ok) {
+                    const text = await response.text();
+                    // Парсим .url файл формата [InternetShortcut]\nURL=...
+                    const urlMatch = text.match(/URL=(.+)/i);
+                    if (urlMatch && urlMatch[1]) {
+                        window.open(urlMatch[1].trim(), '_blank');
+                    } else {
+                        showResult({ error: 'Не удалось извлечь URL из файла' }, true);
+                    }
+                } else {
+                    showResult({ error: 'Не удалось загрузить URL файл' }, true);
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        async function createFolder() {
+            try {
+                const resourceKey = getResourceKey();
+                const path = currentPath;
+                const folderName = prompt('Введите название папки:', 'Новая папка');
+                if (!folderName) return;
+                
+                const url = `${API_BASE}/${resourceKey}/storage/folder${path ? '?path=' + encodeURIComponent(path) : ''}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: folderName })
+                });
+                const data = await response.json();
+                showResult(data, !response.ok);
+                
+                if (response.ok) {
+                    listFiles();
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        function triggerUpload() {
+            document.getElementById('fileInput').click();
+        }
+        
+        async function createUrl() {
+            try {
+                const resourceKey = getResourceKey();
+                const path = currentPath;
+                const urlName = prompt('Введите название ссылки:', 'Новая ссылка');
+                if (!urlName) return;
+                
+                const urlAddress = prompt('Введите URL адрес (http:// или https://):', 'https://');
+                if (!urlAddress) return;
+                
+                const url = `${API_BASE}/${resourceKey}/storage/url${path ? '?path=' + encodeURIComponent(path) : ''}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: urlName, url: urlAddress })
+                });
+                const data = await response.json();
+                showResult(data, !response.ok);
+                
+                if (response.ok) {
+                    listFiles();
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        async function uploadFiles() {
+            try {
+                const resourceKey = getResourceKey();
+                const path = currentPath;
+                const files = document.getElementById('fileInput').files;
+                if (files.length === 0) return;
+                
+                const formData = new FormData();
+                for (let file of files) {
+                    formData.append('files', file);
+                }
+                
+                const url = `${API_BASE}/${resourceKey}/storage/upload${path ? '?path=' + encodeURIComponent(path) : ''}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                showResult(data, !response.ok);
+                
+                if (response.ok) {
+                    listFiles();
+                    document.getElementById('fileInput').value = '';
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        // Автоматически загружаем список при загрузке страницы
+        window.addEventListener('load', () => {
+            updatePathDisplay();
+            listFiles();
+        });
+    </script>
+</body>
+</html>

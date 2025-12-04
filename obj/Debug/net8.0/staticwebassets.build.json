@@ -1,0 +1,39 @@
+{
+  "Version": 1,
+  "Hash": "BwtgFobI571pbjakNFdthU4x8q/LXOSOvSxNMHPP99Y=",
+  "Source": "FileStorage",
+  "BasePath": "_content/FileStorage",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "FileStorage\\wwwroot",
+      "Source": "FileStorage",
+      "ContentRoot": "C:\\Users\\vassa\\Desktop\\производка\\wwwroot\\",
+      "BasePath": "_content/FileStorage",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\vassa\\Desktop\\производка\\wwwroot\\index.html",
+      "SourceId": "FileStorage",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\vassa\\Desktop\\производка\\wwwroot\\",
+      "BasePath": "_content/FileStorage",
+      "RelativePath": "index.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\index.html"
+    }
+  ]
+}
